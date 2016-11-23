@@ -7,6 +7,7 @@ USAGE="Usage: $0 -u [url] -m [mode]
   -m  --mode 		listen/send
   -t  --to              Username to which the messages have to be send
   -d  --dump 		Filename to dump the messages with full path
+  -c  --chat        Chat message to be send to the user
   -s  --sleep 		Time to sleep between each message
   -h  --help 		Display this help and exit"
 
@@ -41,6 +42,10 @@ case $key in
     ;;
     -t|--to)
     TO="$2"
+    shift
+    ;;
+     -c|--chat)
+    CHAT="$2"
     shift
     ;;
      -r|--ready)
@@ -100,6 +105,17 @@ if [[ $MODE == "listen" && $DUMPFILE == "" ]]; then
     elif [[ $MODE == "listen" && $DUMPFILE ]];then
         trap dumpToFile SIGINT
         wsdump.py $URL | tee -a .velocity.txt
+    elif [[ $TO && $MODE == "send" && $CHAT ]]; then
+        RESPONSE=$(echo '{"to": "'$TO'", "msg": "'$CHAT'"}' | wsdump.py $URL)
+        if [[ $RESPONSE == "Handshake status 403" ]]; then
+            echo "Token invalid"
+        elif [[ $RESPONSE == "Press Ctrl+C to quit > >" ]]; then
+            echo "Message sent. If $TO is online, he will receive it."
+        else
+            echo "Some error occured. $TO may or may not have received the message."
+        fi
+    # elif [[ condition ]]; then
+    #         #statements
     else
         :
 fi
