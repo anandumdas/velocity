@@ -48,6 +48,14 @@ case $key in
     CHAT="$2"
     shift
     ;;
+    -l|--length)
+    LENGTH="$2"
+    shift # past argument
+    ;;
+    -n|--number)
+    NUMBER="$2"
+    shift # past argument
+    ;;
      -r|--ready)
     READY="YES"
     ;;
@@ -92,9 +100,14 @@ isRandomStringInstalled() {
 
 dumpToFile(){    
     echo "wsdump exited"
-    grep '{"type":' .velocity.txt | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's/^> < //' >> $DUMPFILE
-    rm -rf .velocity.txt
+    grep '{"type":' .velocity.txt | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's/^\(> < \|> > < \|> > > < \)//' >> $DUMPFILE
+    #rm -rf .velocity.txt
 }
+
+# junkTextGenerator(){
+#     pwgen $1 $2 | while read line; do echo '{"to": "'$3'", "msg": "'$line'"}' ; sleep 0.1; done
+# }
+
 
 
 
@@ -114,8 +127,17 @@ if [[ $MODE == "listen" && $DUMPFILE == "" ]]; then
         else
             echo "Some error occured. $TO may or may not have received the message."
         fi
-    # elif [[ condition ]]; then
-    #         #statements
+    elif [[ $MODE == "send" && $LENGTH && $TO && $NUMBER && $SLEEP == "" && $DUMPFILE == "" ]]; then
+        # junkTextGenerator($NUMBER,$LENGTH,$TO);
+        pwgen $NUMBER $LENGTH | while read line; do echo '{"to": "'$TO'", "msg": "'$line'"}' ; sleep 0.1; done | wsdump.py $URL
+    elif [[ $MODE == "send" && $LENGTH && $TO && $NUMBER && $SLEEP && $DUMPFILE == "" ]]; then
+        pwgen $NUMBER $LENGTH | while read line; do echo '{"to": "'$TO'", "msg": "'$line'"}' ; sleep $SLEEP; done | wsdump.py $URL
+    elif [[ $MODE == "send" && $LENGTH && $TO && $NUMBER && $SLEEP == "" && $DUMPFILE ]]; then
+        pwgen $NUMBER $LENGTH | while read line; do echo '{"to": "'$TO'", "msg": "'$line'"}' ; sleep 0.1; done | wsdump.py $URL | tee -a .velocity.txt
+        dumpToFile
+    elif [[ $MODE == "send" && $LENGTH && $TO && $NUMBER && $SLEEP && $DUMPFILE ]]; then
+        pwgen $NUMBER $LENGTH | while read line; do echo '{"to": "'$TO'", "msg": "'$line'"}' ; sleep $SLEEP; done | wsdump.py $URL | tee -a .velocity.txt
+        dumpToFile
     else
         :
 fi
