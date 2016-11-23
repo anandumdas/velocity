@@ -5,6 +5,7 @@ USAGE="Usage: $0 -u [url] -m [mode]
 
   -u  --url 		Websocket url
   -m  --mode 		listen/send
+  -t  --to              Username to which the messages have to be send
   -d  --dump 		Filename to dump the messages with full path
   -s  --sleep 		Time to sleep between each message
   -h  --help 		Display this help and exit"
@@ -18,7 +19,7 @@ fi
 
 
 ##reading the parameters and storing to respective variables
-while [ $# -gt 1 ]
+while [ $# -gt 0 ]
 do
 key="$1"
 case $key in
@@ -35,14 +36,15 @@ case $key in
     shift # past argument
     ;;
     -s|--sleep)
-    DUMPFILE="$2"
+    SLEEP="$2"
     shift # past argument
     ;;
-    -q|--quit)
-    DEFAULT=YES
+    -t|--to)
+    TO="$2"
+    shift
     ;;
      -r|--ready)
-    READY=YES
+    READY="YES"
     ;;
     *)
             # unknown option
@@ -51,19 +53,17 @@ esac
 shift # past argument or value
 done
 
-##Need a check here to force all compulsary arguments
+##Check to force all compulsary arguments
+# if [[ $URL == "" || $MODE == "" ]]; then
+#     echo "Please specify the necessary arguments: url and mode of operation"
+#     exit
+# fi
 
 
 
 
-
-##Dumps the messages to user defined file
-if [[ "$MODE" == "listen" ]];then
-	wsdump.py $URL | tee -a $DUMPFILE
-fi
-
-# if [[ $DEFAULT -eq YES || $READY -eq YES ]];then
-# 	echo $DEFAULT
+# if [[ $QUIT == "YES" || $READY == "YES" ]];then
+# 	echo "yes"
 # fi
 
 
@@ -84,3 +84,23 @@ isRandomStringInstalled() {
         fi  
     fi
 }
+
+dumpToFile(){    
+    echo "wsdump exited"
+    grep '{"type":' .velocity.txt | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's/^> < //' >> $DUMPFILE
+    rm -rf .velocity.txt
+}
+
+
+
+##Main program starts here
+
+if [[ $MODE == "listen" && $DUMPFILE == "" ]]; then
+    wsdump.py $URL
+    elif [[ $MODE == "listen" && $DUMPFILE ]];then
+        trap dumpToFile SIGINT
+        wsdump.py $URL | tee -a .velocity.txt
+    else
+        :
+fi
+
