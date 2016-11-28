@@ -56,6 +56,14 @@ case $key in
     NUMBER="$2"
     shift # past argument
     ;;
+    -f1|--file1)
+    FILE1="$2"
+    shift # past argument
+    ;;
+    -f2|--file2)
+    FILE2="$2"
+    shift # past argument
+    ;;
      -r|--ready)
     READY="YES"
     ;;
@@ -98,10 +106,64 @@ isRandomStringInstalled() {
     fi
 }
 
+
+isJqInstalled() {
+    if hash jq 2>/dev/null; then
+        :
+    else
+        echo "Installing jq"
+        sudo apt-get install -y jq > /dev/null
+        if [[ $? -eq 0 ]]; then
+            echo "jq install completed"
+        else
+            echo "Installation failed! Quitting..."
+            exit
+        fi  
+    fi
+}
+
 dumpToFile(){    
     echo "wsdump exited"
     grep '{"type":' .velocity.txt | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's/^\(> < \|> > < \|> > > < \)//' >> $DUMPFILE
-    #rm -rf .velocity.txt
+    rm -rf .velocity.txt
+}
+
+comparator(){
+    missmatchedNumber=0
+    lineNumber=0
+    cat $1 | jq -r '.data.text' >> ".$1"
+    cat $2 | jq -r '.data.text' >> ".$2"
+    if [[ $(wc -l "$1" | awk '{print $1}') == $(wc -l "$2" | awk '{print $1}') ]]; then
+        :
+        else
+            echo "Mismatch in number of lines detected, calculation may be incorrect"
+    fi
+    date >> Missmatched-entries.txt
+    echo "=====Unmatched messages======" | tee -a Missmatched-entries.txt
+    while true
+    do
+    read -u3 line1 || break
+    read -u4 line2 || break
+    ((lineNumber++))
+    # echo $line1 | jq -r '.data.text'
+    # echo $line2 | jq -r '.data.text'
+    if grep -Fxq "$(echo $line1 | jq -r '.data.text')" ".$2"
+    # if grep -Fx "$(echo $line1)" "$2"
+        then
+        :
+    else
+        ((missmatchedNumber++))
+        echo "$lineNumber.$(echo $line1 | jq -r '.data.text')" | tee -a Missmatched-entries.txt
+    fi
+    # echo  "$line1" | jq -r '.data.text'
+    # echo "$line2" | jq -r '.data.text'
+    done 3<"$1" 4<"$2"
+    echo "Number of unmatched entries: $missmatchedNumber"
+    echo "Missmatched messages are written to the file 'Missmatched-entries.txt'"
+    echo "=====END======" >> Missmatched-entries.txt
+    echo "" >> Missmatched-entries.txt
+    rm .$1
+    rm .$2
 }
 
 # junkTextGenerator(){
@@ -138,6 +200,8 @@ if [[ $MODE == "listen" && $DUMPFILE == "" ]]; then
     elif [[ $MODE == "send" && $LENGTH && $TO && $NUMBER && $SLEEP && $DUMPFILE ]]; then
         pwgen $NUMBER $LENGTH | while read line; do echo '{"to": "'$TO'", "msg": "'$line'"}' ; sleep $SLEEP; done | wsdump.py $URL | tee -a .velocity.txt
         dumpToFile
+    elif [[ $MODE == "compare" && $FILE1 && $FILE2 ]]; then
+        comparator $FILE1 $FILE2
     else
         :
 fi
